@@ -1,8 +1,12 @@
 {
   "launch_break_start": "11:30:00",
   "launch_break_end": "13:30:00",
+  "launch_break_delta_hour": 1.5,
   "off_duty_first_start": "17:30:00",
   "off_duty_first_end": "23:59:59",
   "off_duty_second_start": "00:00:00",
-  "off_duty_second_end": "08:30:00"
+  "off_duty_second_end": "08:30:00",
+  "input_excel_file_name": "template.xlsx",
+  "input_excel_sheet_name": "Sheet1",
+  "output_excel_file_name": "result.xlsx"
 }

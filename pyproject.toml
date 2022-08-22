@@ -8,7 +8,6 @@ authors = ["idlewith <newellzhou@163.com>"]
 python = "^3.9"
 openpyxl = "^3.0.10"
 chinesecalendar = "^1.7.2"
-sla-calculator = "^1.0.0"
 
 [tool.poetry.dev-dependencies]
 
