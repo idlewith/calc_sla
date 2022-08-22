@@ -13,13 +13,11 @@
 2022/5/3 09:30	2022/5/5 14:05	3155	52.6	4.1
 """
 import datetime
-from pprint import pprint
-import chinese_calendar as calendar
 import json
 import os
-from pprint import pprint
 from argparse import Namespace
 
+import chinese_calendar as calendar
 import openpyxl
 
 
@@ -76,7 +74,6 @@ def str2datetime(date_str):
         return date_str
 
     time_template = '%Y/%m/%d %H:%M:%S'
-    # a = datetime.datetime.strptime(date_str + ':00', time_template)
     a = datetime.datetime.strptime(date_str, time_template)
     return a
 
@@ -143,13 +140,6 @@ def is_in_off_duty_time(start, close):
 
     return False, 0
 
-    # if start <= off_duty_first_start and close <= off_duty_second_end:
-    #     return True, 15 * 60 * 60
-    # elif start >= off_duty_first_start and close >= off_duty_second_end:
-    #     return True, (off_duty_second_end - start).total_seconds()
-    # else:
-    #     return False, 0
-
 
 def calc_break_time(start, close):
     need_minus_seconds_list = []
@@ -176,7 +166,6 @@ def calc(start, close):
     holiday = calendar.is_holiday(date_ymd)
     workday = calendar.is_workday(date_ymd)
 
-    # 如果是节假日或者周末，累计的SLA时间为0
     if holiday or not workday:
         delta = calc_holiday_time(start, close)
     else:
