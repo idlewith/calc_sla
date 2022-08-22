@@ -44,13 +44,23 @@ def calc_seconds(start_time, closed_time):
     return delta
 
 
+def calc_actual_time_delta(start_time, closed_time):
+    pass
+
+
 def calc(start, close):
     sla_model = SlaModel()
 
     sla_model.start_time = str2datetime(start)
     sla_model.closed_time = str2datetime(close)
-    sla_model.total_time_delta_min = int(calc_seconds(sla_model.start_time, sla_model.closed_time)/60)
-    sla_model.total_time_delta_hour = int(sla_model.total_time_delta_min/60)
+    sla_model.total_time_delta_min = int(calc_seconds(sla_model.start_time, sla_model.closed_time) / 60)
+    sla_model.total_time_delta_hour = int(sla_model.total_time_delta_min / 60)
     sla_model.actual_time_delta_hour = calc_actual_time_delta(sla_model.start_time, sla_model.closed_time)
 
-    pass
+
+def main():
+    calc('', '')
+
+
+if __name__ == '__main__':
+    main()
