@@ -32,9 +32,9 @@ def load_break_time():
         "off_duty_second_end": "08:30:00",
         "input_excel_file_name": "template.xlsx",
         "input_excel_sheet_name": "Sheet1",
-        "output_excel_file_name": "result.xlsx"
+        "output_excel_file_name": "result.xlsx",
     }
-    json_file = 'config.json'
+    json_file = "config.json"
     if not os.path.exists(json_file):
         used_break_dict = python_break_dict
     else:
@@ -54,26 +54,26 @@ BREAK_DICT = load_break_time()
 class SlaModel:
     def __init__(self):
         # 创建日期: 2022/5/16 08:28
-        self.start_time = ''
+        self.start_time = ""
 
         # 关闭日期: 2022/5/16 17:06
-        self.closed_time = ''
+        self.closed_time = ""
 
         # 总解决时间(min) 518
-        self.total_time_delta_min = ''
+        self.total_time_delta_min = ""
 
         # 总解决时间(h) 8.6
-        self.total_time_delta_hour = ''
+        self.total_time_delta_hour = ""
 
         # 最终结果(h) 7.1
-        self.actual_time_delta_hour = ''
+        self.actual_time_delta_hour = ""
 
 
 def str2datetime(date_str):
     if isinstance(date_str, datetime.datetime):
         return date_str
 
-    time_template = '%Y/%m/%d %H:%M:%S'
+    time_template = "%Y/%m/%d %H:%M:%S"
     a = datetime.datetime.strptime(date_str, time_template)
     return a
 
@@ -91,7 +91,7 @@ def get_hms(date):
 def gen_datetime_from_break_hms(date_day, break_time_str):
     y, m, d = get_ymd(date_day)
 
-    time_template = '%H:%M:%S'
+    time_template = "%H:%M:%S"
     break_start_hms = datetime.datetime.strptime(break_time_str, time_template)
     h, mi, s = get_hms(break_start_hms)
     return datetime.datetime(y, m, d, h, mi, s)
@@ -104,12 +104,16 @@ def is_in_launch_break_time(start, close):
     actual:     |-------------------------|
     """
 
-    launch_break_start = gen_datetime_from_break_hms(start, BREAK_DICT.launch_break_start)
+    launch_break_start = gen_datetime_from_break_hms(
+        start, BREAK_DICT.launch_break_start
+    )
     launch_break_end = gen_datetime_from_break_hms(start, BREAK_DICT.launch_break_end)
     if start <= launch_break_start and close >= launch_break_end:
-        return True
+        return True, BREAK_DICT.launch_break_delta_hour * 60 * 60
+    elif launch_break_start <= start <= launch_break_end:
+        return True, (launch_break_end - start).total_seconds()
     else:
-        return False
+        return False, 0
 
 
 def is_in_off_duty_time(start, close):
@@ -124,13 +128,31 @@ def is_in_off_duty_time(start, close):
     break time: |---------||-------|
     actual:         |-----||-------------------|
     """
-    off_duty_first_start = gen_datetime_from_break_hms(start, BREAK_DICT.off_duty_first_start)
-    off_duty_first_end = gen_datetime_from_break_hms(start, BREAK_DICT.off_duty_first_end)
-    off_duty_second_start = gen_datetime_from_break_hms(close, BREAK_DICT.off_duty_second_start)
-    off_duty_second_end = gen_datetime_from_break_hms(close, BREAK_DICT.off_duty_second_end)
+    off_duty_first_start = gen_datetime_from_break_hms(
+        start, BREAK_DICT.off_duty_first_start
+    )
+    off_duty_first_end = gen_datetime_from_break_hms(
+        start, BREAK_DICT.off_duty_first_end
+    )
+    off_duty_second_start = gen_datetime_from_break_hms(
+        close, BREAK_DICT.off_duty_second_start
+    )
+    off_duty_second_end = gen_datetime_from_break_hms(
+        close, BREAK_DICT.off_duty_second_end
+    )
 
+    # 如果事件开始时间 < 下班时间
     if start <= off_duty_first_start and off_duty_first_end == close:
-        return True, (off_duty_first_end - off_duty_first_start).total_seconds()
+        delta_off_duty_first = (
+            off_duty_first_end - off_duty_first_start
+        ).total_seconds()
+        # 如果事件开始事件 < 上班时间
+        if off_duty_second_start <= start <= off_duty_second_end:
+            delta_off_duty_early = (off_duty_second_end - start).total_seconds()
+        else:
+            delta_off_duty_early = 0
+        delta_part = delta_off_duty_first + delta_off_duty_early
+        return True, delta_part
 
     if start > off_duty_first_start and off_duty_first_end == close:
         return True, (off_duty_first_end - start).total_seconds()
@@ -144,10 +166,11 @@ def is_in_off_duty_time(start, close):
 def calc_break_time(start, close):
     need_minus_seconds_list = []
 
-    in_launch_break_time = is_in_launch_break_time(start, close)
+    in_launch_break_time, delta_minus_seconds_launch = is_in_launch_break_time(
+        start, close
+    )
     if in_launch_break_time:
-        need_minus_seconds = BREAK_DICT.launch_break_delta_hour * 60 * 60
-        need_minus_seconds_list.append(need_minus_seconds)
+        need_minus_seconds_list.append(delta_minus_seconds_launch)
 
     in_off_duty_time, delta_minus_seconds_duty = is_in_off_duty_time(start, close)
     if in_off_duty_time:
@@ -188,29 +211,27 @@ def get_ymd(date):
 def concat_start_day_list(date_start):
     y, m, d = get_ymd(date_start)
     end_of_day = datetime.datetime(y, m, d, 23, 59, 59)
-    return [
-        date_start,
-        end_of_day
-    ]
+    return [date_start, end_of_day]
 
 
 def concat_close_day_list(date_end):
     y, m, d = get_ymd(date_end)
     start_of_day = datetime.datetime(y, m, d, 0, 0, 0)
-    return [
-        start_of_day,
-        date_end
-    ]
+    return [start_of_day, date_end]
 
 
 def concat_whole_day_list(date_middle):
     y, m, d = get_ymd(date_middle)
     start_of_day = datetime.datetime(y, m, d, 0, 0, 0)
     end_of_day = datetime.datetime(y, m, d, 23, 59, 59)
-    return [
-        start_of_day,
-        end_of_day
-    ]
+    return [start_of_day, end_of_day]
+
+
+def calc_days(s, c):
+    days = (datetime.datetime(c.year, c.month, c.day) - datetime.datetime(
+        s.year, s.month, s.day
+    )).days
+    return days
 
 
 def get_date_list_from_more_than_one_day(start, close):
@@ -218,7 +239,7 @@ def get_date_list_from_more_than_one_day(start, close):
 
     s = str2datetime(start)
     c = str2datetime(close)
-    days = (c - s).days
+    days = calc_days(s, c)
 
     start_day_list = concat_start_day_list(s)
     date_list.append(start_day_list)
@@ -230,6 +251,7 @@ def get_date_list_from_more_than_one_day(start, close):
 
     close_day_list = concat_close_day_list(c)
     date_list.append(close_day_list)
+    date_list = sorted(date_list, key=lambda x: x[0])
 
     return date_list
 
@@ -273,13 +295,15 @@ def calc_multiple_events(date_list):
     for start_close in date_list:
         start, close = start_close
         sla_model: SlaModel = calc_single_event(start, close)
-        r.append([
-            sla_model.start_time.strftime("%Y-%m-%d %H:%M:%S"),
-            sla_model.closed_time.strftime("%Y-%m-%d %H:%M:%S"),
-            f'{sla_model.total_time_delta_min:.0f}',
-            f'{sla_model.total_time_delta_hour:.1f}',
-            f'{sla_model.actual_time_delta_hour:.1f}',
-        ])
+        r.append(
+            [
+                sla_model.start_time.strftime("%Y/%m/%d %H:%M:%S"),
+                sla_model.closed_time.strftime("%Y/%m/%d %H:%M:%S"),
+                f"{sla_model.total_time_delta_min:.0f}",
+                f"{sla_model.total_time_delta_hour:.1f}",
+                f"{sla_model.actual_time_delta_hour:.1f}",
+            ]
+        )
     return r
 
 
@@ -327,7 +351,9 @@ def write_to_excel(file_excel, data_list):
 
 
 def main():
-    excel_list = read_excel(BREAK_DICT.input_excel_file_name, BREAK_DICT.input_excel_sheet_name)
+    excel_list = read_excel(
+        BREAK_DICT.input_excel_file_name, BREAK_DICT.input_excel_sheet_name
+    )
     date_list = []
     for row in excel_list[1:]:
         start, close = row[0], row[1]
@@ -339,5 +365,5 @@ def main():
     write_to_excel(BREAK_DICT.output_excel_file_name, data_list)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
