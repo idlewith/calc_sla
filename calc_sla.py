@@ -142,17 +142,23 @@ def is_in_off_duty_time(start, close):
     )
 
     # 如果事件开始时间 < 下班时间
-    if start <= off_duty_first_start and off_duty_first_end == close:
-        delta_off_duty_first = (
-            off_duty_first_end - off_duty_first_start
-        ).total_seconds()
-        # 如果事件开始事件 < 上班时间
-        if off_duty_second_start <= start <= off_duty_second_end:
-            delta_off_duty_early = (off_duty_second_end - start).total_seconds()
-        else:
-            delta_off_duty_early = 0
-        delta_part = delta_off_duty_first + delta_off_duty_early
-        return True, delta_part
+    if start <= off_duty_first_start:
+        if off_duty_first_end == close:
+            delta_off_duty_first = (off_duty_first_end - off_duty_first_start).total_seconds()
+            # 如果事件开始事件 < 上班时间
+            if off_duty_second_start <= start <= off_duty_second_end:
+                delta_off_duty_early = (off_duty_second_end - start).total_seconds()
+            else:
+                delta_off_duty_early = 0
+            delta_part = delta_off_duty_first + delta_off_duty_early
+            return True, delta_part
+        if close < off_duty_first_end:
+            # 如果事件开始事件 < 上班时间
+            if off_duty_second_start <= start <= off_duty_second_end:
+                delta_off_duty_early = (off_duty_second_end - start).total_seconds()
+            else:
+                delta_off_duty_early = 0
+            return True, delta_off_duty_early
 
     if start > off_duty_first_start and off_duty_first_end == close:
         return True, (off_duty_first_end - start).total_seconds()
