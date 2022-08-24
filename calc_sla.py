@@ -23,16 +23,16 @@ import openpyxl
 
 def load_break_time():
     python_break_dict = {
-        "launch_break_start": "11:30:00",
+        "launch_break_start": "12:00:00",
         "launch_break_end": "13:30:00",
         "launch_break_delta_hour": 1.5,
-        "off_duty_first_start": "17:30:00",
+        "off_duty_first_start": "18:00:00",
         "off_duty_first_end": "23:59:59",
         "off_duty_second_start": "00:00:00",
         "off_duty_second_end": "08:30:00",
         "input_excel_file_name": "template.xlsx",
         "input_excel_sheet_name": "Sheet1",
-        "output_excel_file_name": "result.xlsx",
+        "output_excel_file_name": "result.xlsx"
     }
     json_file = "config.json"
     if not os.path.exists(json_file):
@@ -108,10 +108,20 @@ def is_in_launch_break_time(start, close):
         start, BREAK_DICT.launch_break_start
     )
     launch_break_end = gen_datetime_from_break_hms(start, BREAK_DICT.launch_break_end)
+    # 包含午休时间
     if start <= launch_break_start and close >= launch_break_end:
         return True, BREAK_DICT.launch_break_delta_hour * 60 * 60
-    elif launch_break_start <= start <= launch_break_end:
+    # 在午休时间内
+    elif start >= launch_break_start and close <= launch_break_end:
+        return True, 0
+    # 开始时间在午休时间内，结束时间大于午休结束时间
+    elif launch_break_start <= start <= launch_break_end and close >= launch_break_end:
         return True, (launch_break_end - start).total_seconds()
+    # 开始时间在午休前面，结束在午休时间内
+    elif start <= launch_break_start and launch_break_start <= close <= launch_break_end:
+        return True, (close - launch_break_start).total_seconds()
+    # elif launch_break_start <= start <= launch_break_end:
+    #     return True, (launch_break_end - start).total_seconds()
     else:
         return False, 0
 
@@ -152,13 +162,19 @@ def is_in_off_duty_time(start, close):
                 delta_off_duty_early = 0
             delta_part = delta_off_duty_first + delta_off_duty_early
             return True, delta_part
+        # 如果事件结束时间 < 第一天下班结束时间
         if close < off_duty_first_end:
             # 如果事件开始事件 < 上班时间
             if off_duty_second_start <= start <= off_duty_second_end:
                 delta_off_duty_early = (off_duty_second_end - start).total_seconds()
             else:
                 delta_off_duty_early = 0
-            return True, delta_off_duty_early
+            # 如果结束时间 > 下班时间
+            if close >= off_duty_first_start:
+                delta_off_duty_late = (close - off_duty_first_start).total_seconds()
+            else:
+                delta_off_duty_late = 0
+            return True, delta_off_duty_early + delta_off_duty_late
 
     if start > off_duty_first_start and off_duty_first_end == close:
         return True, (off_duty_first_end - start).total_seconds()
@@ -264,8 +280,8 @@ def get_date_list_from_more_than_one_day(start, close):
 
 def calc_single_event(start, close):
     sla_model = SlaModel()
-    sla_model.start_time = start
-    sla_model.closed_time = close
+    sla_model.start_time = str2datetime(start)
+    sla_model.closed_time = str2datetime(close)
 
     summary_seconds = (str2datetime(close) - str2datetime(start)).total_seconds()
 
